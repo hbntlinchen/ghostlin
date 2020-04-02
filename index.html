@@ -1,0 +1,600 @@
+﻿<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+
+		<title>捕鲲达人</title>
+	</head>
+
+	<body>
+		<div id="container">
+			<div id="main"  >
+				<div id="stage" style="margin: 0 auto; width: 800px; height: 480px;  text-align: center; vertical-align: middle" >
+				
+					<canvas id="canvas"  width="800" height="480">
+						不支持画板对象时能看到
+					</canvas>
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript">
+			var canvas = document.getElementById("canvas");
+			var ctx = canvas.getContext('2d');
+
+			var bg = new Image();
+			bg.src = "images/bg.jpg";
+
+			var bg2 = new Image();
+			bg2.src = "images/bg_2.png";
+
+			var shops = new Image();
+			shops.src = "images/shop.png";
+			
+			var basketball=[]
+			basketball[0] = new Image();
+			basketball[0].src = "images/basketball.png"
+
+
+			var bom = new Image();
+			bom.src = "images/bom.png"
+
+			var crimeImage = new Image();
+			crimeImage.src = "images/crime.png"
+
+			var SCORE = 10000000000;
+			//创建鲲的构造方法
+			function Fish() {
+				var randomFish = parseInt(Math.random() * 5 + 1);
+				var fish = [];
+				this.width = 100;
+				this.height = 100
+				//设置鲲的图片,以及鲲的动画帧
+				for (var i = 0; i < 2; i++) {
+					var fishImage = new Image();
+					fishImage.src = "images/fish_" + randomFish + "_" + i + ".png";
+					fish[i] = fishImage;
+				}
+				this.x = 800;
+				this.y = Math.random() * (480 - 100);
+				this.type = randomFish
+				//如果鲲为特殊方块的话,就增加随机的分数,速度也与其他鲲不同
+				if (randomFish == 5) {
+					var randomFish_5 = parseInt(Math.random() * 5 + 1);
+					if (randomFish_5 == 1) {
+						this.score = randomFish + 1000;
+					} else if (randomFish_5 == 2) {
+						this.score = randomFish + 500;
+					} else {
+						this.score = randomFish + 100;
+					}
+
+				} else {
+					this.score = randomFish + 10;
+				}
+
+				this.frame = fish[0];
+				//设置时间间隔
+				var interval = 70;
+				var lastTime = 0;
+				function timeOut() {
+					var current = new Date().getTime();
+					var t = current - lastTime;
+					if (t >= interval) {
+						lastTime = current;
+						return true;
+					}
+					return false;
+				}
+
+				var index = 0;
+				//添加step和paint方法,让鲲可以被画出来
+				this.step = function() {
+					if (timeOut()) {
+						if (randomFish == 5) {
+							this.x = this.x - 75;
+						} else {
+							this.x = this.x - 2;
+						}
+						//让鲲动起来,共有两个动画帧,每次反复游动
+						this.frame = fish[index % 2]
+						index++;
+					}
+				}
+				this.paint = function(ctx) {
+					ctx.drawImage(this.frame, this.x, this.y);
+					ctx.font = "20px 微软雅黑";
+					ctx.fillStyle = "red";
+					ctx.fillText("SCORE:" + SCORE, 10, 20);
+					ctx.fillText("按 j 键进入商店", 180, 20);
+				}
+				this.paint2 = function() {
+					ctx.font = "20px 微软雅黑";
+					ctx.fillStyle = "red";
+					ctx.fillText("SCORE:" + SCORE, 10, 20);
+				}
+			}
+
+			var xukunSwitch = false;
+		
+
+			var bullets = []
+			function Xukun() {
+				this.x = 200;
+				this.y = 0;
+				this.life = 100;
+				var xks = [];
+
+				for (var i3 = 0; i3 <= 1; i3++) {
+					var xukunImage = new Image();
+					xukunImage.src = "images/xukun_" + i3 + ".png"
+					xks[i3] = xukunImage;
+				}
+				this.frames = xks[0];
+				this.c = 3;
+				this.move = function() {
+					if (this.y <= 0) {
+						this.c = 3;
+					}
+					if (this.y >= 380) {
+						this.c = -3;
+					}
+					this.y += this.c;
+				}
+				var index = 0;
+				this.step = function() {
+					this.frames = xks[index % 2];
+					index++;
+				}
+				this.paint = function(ctx) {
+					ctx.drawImage(this.frames, this.x, this.y);
+
+				}
+				this.shoot = function() {
+					bullets[bullets.length] = new Bullet(this.x + 45, this.y, 9, 21, 1, basketball, 1);
+					for (var i=0; i < bullets.length; i++) {
+					  	bullets[i].paint();
+						bullets[i].x += 50;
+					};
+				}
+			}
+			var netSwitch = 0;
+			
+			var ink = 0;
+			var bomb = 0;
+			var crime = 0;
+			//创建鼠标点击事件,让鲲被鼠标点击捉它
+			canvas.onclick = function(e) {
+				//判断鲲的种类设置鲲被捕捉的概率
+				for (var i = 0; i < allFish.length; i++) {
+					var n;
+					if (allFish[i].probability <= 0) {
+						n = 0.7;
+						netCatch(e);
+					} else if (allFish[i].probability <= 2) {
+						n = 0.5;
+						netCatch(e);
+					} else if (allFish[i].probability == 4) {
+						n = 0.1;
+						netCatch(e);
+					} else {
+						n = 0.35;
+						netCatch(e);
+					}
+					//创建商店
+					if (shop == true) {
+						var mpoint = getPointOnCanvas(e.x, e.y);
+						//使鼠标点击这块区域时购买
+						if (mpoint.x >= 87 && mpoint.x <= 187 &&
+							 mpoint.y >= 94 && mpoint.y <= 185) {
+							if (SCORE >= 1500) {
+								alert("购买鱼雷成功");
+								SCORE -= 1500;
+								shop = false;
+								bomb += 300;
+								for (var i = 0; i < allFish.length; i++) {
+									SCORE += allFish[i].score;
+								}
+								allFish = [];
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						} else if (mpoint.x >= 233 && mpoint.x <= 333 && mpoint.y >= 94 && mpoint.y <= 185) {
+							if (SCORE >= 600) {
+								alert("购买鱼饵成功");
+								SCORE -= 600;
+								shop = false;
+								for (var i = 0; i < allFish.length; i++) {
+									allFish[i].x = 395;
+									allFish[i].y = 225;
+								}
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						} else if (mpoint.x >= 368 && mpoint.x <= 468 && mpoint.y >= 94 && mpoint.y <= 185) {
+							if (SCORE >= 10) {
+								alert("购买有害垃圾成功");
+								SCORE -= 10;
+								alert("由于你违反国家规定，排放、倾倒或者处置有放射性的废物、含传染病病原体的废物、有毒物质和其他有害物质，严重的污染了环境，影响了生态平衡。经法院判处三年零两个月的有期徒刑，并处以10000元人民币的罚金")
+								SCORE -= 10000;
+								crime = 36892800;
+								shop = false;
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						} else if (mpoint.x >= 494 && mpoint.x <= 594 && mpoint.y >= 94 && mpoint.y <= 185) {
+							if (SCORE >= 1000) {
+								alert("购买神秘球王成功");
+								alert("你解开了他的真面目");
+								SCORE -= 1000;
+								shop = false;
+								xukunSwitch = true;
+
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						} else if (mpoint.x >= 619 && mpoint.x <= 719 && mpoint.y >= 94 && mpoint.y <= 185) {
+							if (SCORE >= 0) {
+								alert("购买空气成功");
+								shop = false;
+								
+							}
+						} else if (mpoint.x >= 83 && mpoint.x <= 183 && mpoint.y >= 261 && mpoint.y <= 348) {
+							if (SCORE >= 10000) {
+								alert("购买低级的宝箱成功");
+								alert("你可能抽到 2000,5000,8000,12000,15000 SCORE");
+								var number = parseInt(Math.random() * 5 + 1);
+								var gold = 0;
+								if (number == 1) {
+									gold = 2000;
+								} else if (number == 2) {
+									gold = 5000;
+								} else if (number == 3) {
+									gold = 8000;
+								} else if (number == 4) {
+									gold = 12000;
+								} else {
+									gold = 15000;
+								}
+								alert("你抽到了" + gold + " SCORE")
+								SCORE -= 10000;
+								SCORE += gold;
+								shop = false;
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						} else if (mpoint.x >= 233 && mpoint.x <= 333 && mpoint.y >= 261 && mpoint.y <= 348) {
+							if (SCORE >= 50) {
+								alert("购买刷子成功");
+								SCORE -= 50;
+								shop = false;
+								if (ink <= 0) {
+									alert("你暂时没有墨水");
+								} else {
+									ink = 0;
+								}
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						} else if (mpoint.x >= 367 && mpoint.x <= 467 && mpoint.y >= 261 && mpoint.y <= 348) {
+							if (SCORE >= 15000) {
+								alert("购买随机宝箱成功");
+								alert("你可能抽到 2000,5000,10000,15000,20000 SCORE");
+								var number = parseInt(Math.random() * 5 + 1);
+								var gold = 0;
+								if (number == 1) {
+									gold = 2000;
+								} else if (number == 2) {
+									gold = 5000;
+								} else if (number == 3) {
+									gold = 10000;
+								} else if (number == 4) {
+									gold = 15000;
+								} else {
+									gold = 20000;
+								}
+								alert("你抽到了" + gold + " SCORE")
+								SCORE -= 15000;
+								SCORE += gold;
+								shop = false;
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						} else if (mpoint.x >= 500 && mpoint.x <= 600 && mpoint.y >= 261 && mpoint.y <= 348) {
+							if (SCORE >= 1000000) {
+								alert("购买出狱卡成功");
+								SCORE -= 1000000;
+								if (crime <= 0) {
+									alert("你暂时没有入狱")
+								} else {
+									crime = 0;
+								}
+								shop = false;
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						} else if (mpoint.x >= 642 && mpoint.x <= 742 && mpoint.y >= 261 && mpoint.y <= 348) {
+							if (SCORE >= 100000) {
+								alert("购买史诗随机宝箱成功");
+								alert("你可能抽到 2000,5000,10000,15000,20000,1000000 SCORE");
+								var number = parseInt(Math.random() * 6 + 1);
+								var gold = 0;
+								if (number == 1) {
+									gold = 2000;
+								} else if (number == 2) {
+									gold = 5000;
+								} else if (number == 3) {
+									gold = 10000;
+								} else if (number == 4) {
+									gold = 15000;
+								} else if (number == 5){
+									gold = 20000;
+								} else {
+									gold = 1000000; 
+								}
+								alert("你抽到了" + gold + " SCORE")
+								SCORE -= 100000;
+								SCORE += gold;	
+								shop = false;
+							} else {
+								alert("分数不足")
+								shop = false;
+							}
+						}
+					}
+				}
+				//创建抓鲲方法,让鼠标与鲲的坐标相重合就成功抓鲲
+				function netCatch(e) {
+					if (shop == false) {
+						if ((allFish[i].x > (net.x - 50) &&
+						 allFish[i].x < (net.x + 160)) &&
+						  (allFish[i].y > (net.y - 48) &&
+						   allFish[i].y < (net.y + 160)) &&
+						    Math.random() < n) {
+							SCORE = SCORE + allFish[i].score;
+							if (allFish[i].type == 4) {
+								ink += 500
+							}
+							//调用remove方法
+							remove(i);
+						}
+					}
+				}
+
+			}
+			//在鼠标的位置上画出网
+			function Net() {
+			
+				var NET = new Image();
+				NET.src = "images/net.png";
+				
+				this.x = 0;
+				this.y = 0;
+				this.paint = function(ctx) {
+					ctx.drawImage(NET, this.x, this.y);
+				}
+			}
+
+			
+			//减去浏览器多出的坐标,使实际鼠标与画图上的鼠标重合
+			function getPointOnCanvas(x,y) {
+				var bbox = canvas.getBoundingClientRect();
+				return {
+					x : x - bbox.left,
+					y : y - bbox.top
+				};
+			}
+			//使鼠标与网中心重合
+			canvas.onmousemove = function(e) {
+				var mpoint = getPointOnCanvas(e.x, e.y);
+				net.x=mpoint.x-80;
+				net.y=mpoint.y-80;
+			}
+			//创建remove方法
+			function remove(i) {
+				//清除当前的一张图片
+				allFish.splice(i, 1);
+			}
+
+			var lastTime = 0;
+			var interval = 1000;
+			function isActionTime(lastTime, interval) {
+				var currentTime = new Date().getTime();
+
+				if (lastTime == 0) {
+					return true;
+				}
+				return currentTime - lastTime >= interval;
+
+			}
+
+			var allFish = [];
+			var net = new Net();
+			var shop = false;
+			//键盘点击事件
+			document.onkeydown = function(e) {
+				if (e.keyCode == 74) {
+					shop = true;
+				} else if (shop == true) {
+					if (e.keyCode == 75) {
+						shop = false;
+					}
+				}
+			}
+			var xukun = [];
+			setInterval(function() {
+				
+				if (crime <= 0) {
+					if (shop == false) {
+						checkHit() 
+						ctx.drawImage(bg, 0, 0);
+						for (var i = 0; i < allFish.length; i++) {
+							allFish[i].paint(ctx);
+						}
+						for (var i = 0; i < allFish.length; i++) {
+							allFish[i].step();
+						}
+						net.paint(ctx);
+						if (ink > 0) {
+							ink--;
+							ctx.drawImage(bg2, 0, 0);
+						}
+						if (bomb > 0) {
+							bomb--;
+							ctx.drawImage(bom, 0, 0);
+						}
+
+						if (xukunSwitch) {
+							xukun[xukun.length] = new Xukun()
+							xukun[0].paint(ctx);
+							xukun[0].step();
+							xukun[0].y += xukun[0].c
+							xukun[0].move();
+							xukun[0].shoot();
+						}
+					} else if (shop == true) {
+						ctx.drawImage(shops, 0, 0)
+						for (var i = 0; i < allFish.length; i++) {
+							allFish[i].paint2();
+						}
+					}
+
+					if (!isActionTime(lastTime, interval)) {
+						return;
+					}
+
+					lastTime = new Date().getTime();
+					allFish[allFish.length] = new Fish();
+				} else {
+					ctx.font = "60px 微软雅黑";
+					ctx.fillStyle = "red";
+					ctx.drawImage(crimeImage, 0, 0)
+					crime -= 0.01;
+					ctx.fillText(crime, 165, 80);
+					if (shop == true) {
+						ctx.drawImage(shops, 0, 0)
+						for (var i = 0; i < allFish.length; i++) {
+							allFish[i].paint2();
+						}
+					}
+				}
+
+			}, 10)
+
+			function FlyingObject(x, y, width, height, life, frames, baseFrameCount) {
+				this.x = x;
+				this.y = y;
+				this.width = width;
+				this.height = height;
+				this.life = life;
+				this.frames = frames;
+				this.img = this.frames[0];
+				this.frameIndex = 0;
+				this.frameCount = baseFrameCount;
+				this.interval = 10;
+				this.lastTime = 0;
+				this.down = false;
+				this.canDelete = false;
+				this.paint = function() {
+					ctx.drawImage(this.img, this.x, this.y);
+				}
+				this.step = function() {
+					if (!isActionTime(this.lastTime, this.interval)) {
+						return;
+					}
+					this.lastTime = new Date().getTime();
+					if (this.down) {
+						if (this.frameIndex == this.frames.length) {
+							this.canDelete = true;
+						} else {
+							this.img = this.frames[this.frameIndex];
+							this.frameIndex++;
+						}
+					} else {
+						this.move();
+						this.img = this.frames[this.frameIndex % this.frameCount];
+						this.frameIndex++;
+					}
+
+				}
+				this.move = function() {
+					this.y++;
+				}
+				this.hit = function(component) {
+					var c = component;
+					return c.x > this.x - c.width && c.x < this.x + this.width && c.y > this.y - c.height && c.y < this.y + this.height;
+				}
+				this.bang = function() {
+					this.life--;
+					if (this.life == 0) {
+						this.down = true;
+						if (this.score) {
+							score = score + this.score;
+						}
+						this.frameIndex = this.frameCount;
+					}
+				}
+				this.outOfBounds = function() {
+					return this.y >= 852;
+				}
+			}
+
+			function Bullet(x, y, width, height, life, frames, baseFrameCount, type) {
+				FlyingObject.call(this, x, y, width, height, life, frames, baseFrameCount);
+				this.move = function() {
+					this.y -= 2;
+					switch(type) {
+						case 1:
+							this.x -= 1;
+							break;
+						case 2:
+							this.x -= 0.45;
+							break;
+						case 3:
+							break;
+						case 4:
+							this.x += 0.45;
+							break;
+						case 5:
+							this.x += 1;
+							break;
+					}
+				}
+				this.outOfBounds = function() {
+					return this.y < -this.height;
+				}
+			}
+			function checkHit() {
+				
+				for (var i = 0; i < allFish.length; i++) {
+					var enemy = allFish[i];
+					
+					for (var j = 0; j < bullets.length; j++) {
+						var bullet = bullets[j];
+						if (bullet.canDelete || bullet.down) {
+							continue;
+						}
+						if (bullet.hit(enemy)) {
+							SCORE = SCORE + allFish[i].score;
+							allFish.splice(i,1);
+							
+						}
+					}
+					
+				}
+				
+				
+			}
+			
+			
+		</script>
+	</body>
+</html>
+
